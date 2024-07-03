@@ -13,7 +13,7 @@ import (
 	"go.uber.org/zap"
 )
 
-type httpClient struct {
+type HTTPClient struct {
 	url    string
 	key    string
 	secret string
@@ -21,8 +21,8 @@ type httpClient struct {
 	logger *zap.Logger
 }
 
-func NewHTTPClient(url, key, secret string, logger *zap.Logger) *httpClient {
-	return &httpClient{
+func NewHTTPClient(url, key, secret string, logger *zap.Logger) *HTTPClient {
+	return &HTTPClient{
 		url:    url,
 		key:    key,
 		secret: secret,
@@ -31,7 +31,7 @@ func NewHTTPClient(url, key, secret string, logger *zap.Logger) *httpClient {
 	}
 }
 
-func (c *httpClient) Request(method, path string, params url.Values, body map[string]interface{}, auth bool) ([]byte, error) {
+func (c *HTTPClient) Request(method, path string, params url.Values, body map[string]interface{}, auth bool) ([]byte, error) {
 	var (
 		reqBody []byte
 	)
@@ -103,7 +103,7 @@ func (c *httpClient) Request(method, path string, params url.Values, body map[st
 
 // 获取市场状态
 // - market 空字符串或不传表示查询全部市场
-func (c *httpClient) SpotMarket(market string) ([]*SpotMarket, error) {
+func (c *HTTPClient) SpotMarket(market string) ([]*SpotMarket, error) {
 	method := http.MethodGet
 	path := "/v2/spot/market"
 	params := url.Values{}
@@ -143,7 +143,7 @@ func (c *httpClient) SpotMarket(market string) ([]*SpotMarket, error) {
 // - price_type K线的绘制价格类型, 默认为latest_price, 现货市场没有mark_price
 // - limit 交易数据条数. 默认 100, 最大值为 1000
 // - period k 线周期. ["1min", "3min", "5min", "15min", "30min", "1hour", "2hour", "4hour", "6hour", "12hour", "1day", "3day", "1week"]中的一个
-func (c *httpClient) SpotKLine(market, priceType string, limit int, period string) ([]*SpotKLine, error) {
+func (c *HTTPClient) SpotKLine(market, priceType string, limit int, period string) ([]*SpotKLine, error) {
 	method := http.MethodGet
 	path := "/v2/spot/kline"
 	params := url.Values{}
@@ -187,7 +187,7 @@ func (c *httpClient) SpotKLine(market, priceType string, limit int, period strin
 // - market 市场名称
 // - limit 深度数据条数
 // - interval 合并粒度
-func (c *httpClient) SpotDepth(market string, limit int, interval string) (*SpotDepth, error) {
+func (c *HTTPClient) SpotDepth(market string, limit int, interval string) (*SpotDepth, error) {
 	method := http.MethodGet
 	path := "/v2/spot/depth"
 	params := url.Values{}
@@ -223,7 +223,7 @@ func (c *httpClient) SpotDepth(market string, limit int, interval string) (*Spot
 }
 
 // 获取充提配置
-func (c *httpClient) DepositWithdrawConfig(ccy string) (*DepositWithdrawConfig, error) {
+func (c *HTTPClient) DepositWithdrawConfig(ccy string) (*DepositWithdrawConfig, error) {
 	method := http.MethodGet
 	path := "/v2/assets/deposit-withdraw-config"
 	params := url.Values{}
