@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -308,7 +307,7 @@ func (c *httpClient) CancelOrder(orderId, pair, account string) (*Order, error) 
 		c.logger.Error(method+" "+path, zap.Error(err))
 		return nil, errors.WithStack(err)
 	}
-	log.Println(string(respBody))
+
 	var reply *Order
 	if err := json.Unmarshal(respBody, &reply); err != nil {
 		c.logger.Error(method+" "+path, zap.String("reply", string(respBody)), zap.Error(err))

@@ -27,7 +27,16 @@ func TestWSClient_SubOrderBook(t *testing.T) {
 		}
 	}()
 
-	for msg := range cli.Message() {
+	go cli.Ping(10 * time.Second)
+
+	for {
+		msg, err := cli.Read()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if msg == nil {
+			continue
+		}
 		if ob, ok := msg.(*OrderBook); ok {
 			t.Logf("订单簿/深度 %s(%d,%d) 买一: %+v 卖一: %+v",
 				ob.Pair,

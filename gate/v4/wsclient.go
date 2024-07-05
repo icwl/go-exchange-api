@@ -2,7 +2,6 @@ package gate
 
 import (
 	"encoding/json"
-	"fmt"
 	"sync"
 	"time"
 
@@ -16,7 +15,6 @@ type WSClient struct {
 	url    string
 	cli    *websocket.Conn
 	stop   chan interface{}
-	read   chan interface{}
 	lock   *sync.Mutex
 	wait   *sync.WaitGroup
 	logger *zap.Logger
@@ -27,7 +25,6 @@ func NewWSClient(url string, logger *zap.Logger) *WSClient {
 		url:    url,
 		cli:    nil,
 		stop:   nil,
-		read:   nil,
 		lock:   new(sync.Mutex),
 		wait:   new(sync.WaitGroup),
 		logger: logger,
@@ -36,7 +33,7 @@ func NewWSClient(url string, logger *zap.Logger) *WSClient {
 	return ws
 }
 
-func (c *WSClient) Ping(interval time.Duration) {
+func (c *WSClient) Ping(interval time.Duration) error {
 	c.wait.Add(1)
 	defer c.wait.Done()
 
@@ -49,87 +46,11 @@ func (c *WSClient) Ping(interval time.Duration) {
 	for {
 		select {
 		case <-c.stop:
-			return
+			return nil
 		case <-ticker.C:
 			if err := c.SendChannel(channel, nil); err != nil {
 				logger.Error("Send.Ping", zap.Error(err))
-				c.read <- errors.WithStack(err)
-				return
-			}
-		}
-	}
-}
-
-func (c *WSClient) Listen() {
-	c.wait.Add(1)
-	defer c.wait.Done()
-
-	var (
-		logger = c.logger
-	)
-
-	defer func() {
-		if err := recover(); err != nil {
-			err := fmt.Errorf("%s", err)
-			c.read <- errors.WithStack(err)
-		}
-	}()
-
-	for {
-		select {
-		case <-c.stop:
-			return
-		default:
-			if err := c.cli.SetReadDeadline(time.Now().Add(120 * time.Second)); err != nil {
-				logger.Error("SetReadDeadline", zap.Error(err))
-				c.read <- errors.WithStack(err)
-				return
-			}
-
-			_, msg, err := c.cli.ReadMessage()
-			if err != nil {
-				logger.Error("ReadMessage", zap.Error(err))
-				c.read <- errors.WithStack(err)
-				return
-			}
-
-			var raw struct {
-				Time    int             `json:"time"`
-				Channel string          `json:"channel"`
-				Event   string          `json:"event"`
-				Result  json.RawMessage `json:"result"`
-			}
-
-			if err := json.Unmarshal(msg, &raw); err != nil {
-				logger.Error("Unmarshal", zap.Error(err))
-				c.read <- errors.WithStack(err)
-				return
-			}
-
-			switch raw.Event {
-			case "update":
-				switch raw.Channel {
-				case "spot.order_book":
-					var dp struct {
-						T            int64                `json:"t"`
-						LastUpdateId int64                `json:"lastUpdateId"`
-						S            string               `json:"s"`
-						Bids         [][2]decimal.Decimal `json:"bids"`
-						Asks         [][2]decimal.Decimal `json:"asks"`
-					}
-					if err := json.Unmarshal(raw.Result, &dp); err != nil {
-						c.logger.Error("Unmarshal", zap.String("data", string(raw.Result)))
-						c.read <- errors.WithStack(err)
-						break
-					}
-
-					c.read <- &OrderBook{
-						Pair: dp.S,
-						Asks: dp.Asks,
-						Bids: dp.Bids,
-					}
-				case "spot.pong":
-				}
+				return errors.WithStack(err)
 			}
 		}
 	}
@@ -149,10 +70,6 @@ func (c *WSClient) Connect() error {
 
 	c.cli = cli
 	c.stop = make(chan interface{}, 1)
-	c.read = make(chan interface{}, 1000)
-
-	go c.Ping(10 * time.Second)
-	go c.Listen()
 
 	return nil
 }
@@ -176,9 +93,56 @@ func (c *WSClient) Close() error {
 
 	c.cli = nil
 	c.wait.Wait()
-	close(c.read)
 
 	return nil
+}
+
+func (c *WSClient) Read() (interface{}, error) {
+	if err := c.cli.SetReadDeadline(time.Now().Add(120 * time.Second)); err != nil {
+		return nil, errors.WithStack(err)
+	}
+
+	_, msg, err := c.cli.ReadMessage()
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
+
+	var raw struct {
+		Time    int             `json:"time"`
+		Channel string          `json:"channel"`
+		Event   string          `json:"event"`
+		Result  json.RawMessage `json:"result"`
+	}
+
+	if err := json.Unmarshal(msg, &raw); err != nil {
+		return nil, errors.WithStack(err)
+	}
+
+	switch raw.Event {
+	case "update":
+		switch raw.Channel {
+		case "spot.order_book":
+			var dp struct {
+				T            int64                `json:"t"`
+				LastUpdateId int64                `json:"lastUpdateId"`
+				S            string               `json:"s"`
+				Bids         [][2]decimal.Decimal `json:"bids"`
+				Asks         [][2]decimal.Decimal `json:"asks"`
+			}
+			if err := json.Unmarshal(raw.Result, &dp); err != nil {
+				err = errors.Wrap(err, string(raw.Result))
+				return nil, errors.WithStack(err)
+			}
+
+			return &OrderBook{
+				Pair: dp.S,
+				Asks: dp.Asks,
+				Bids: dp.Bids,
+			}, nil
+		case "spot.pong":
+		}
+	}
+	return nil, nil
 }
 
 func (c *WSClient) Send(msg []byte) error {
@@ -221,12 +185,4 @@ func (c *WSClient) Sub(channel string, payload []interface{}) error {
 func (c *WSClient) SubOrderBook(cp, level, interval string) error {
 	channel := "spot.order_book"
 	return c.Sub(channel, []interface{}{cp, level, interval})
-}
-
-func (c *WSClient) Read() interface{} {
-	return <-c.read
-}
-
-func (c *WSClient) Message() chan interface{} {
-	return c.read
 }

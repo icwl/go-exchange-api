@@ -25,7 +25,17 @@ func TestWSClient_SubDepth(t *testing.T) {
 			panic(err)
 		}
 	}()
-	for msg := range cli.Message() {
+
+	go cli.Ping(10 * time.Second)
+
+	for {
+		msg, err := cli.Read()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if msg == nil {
+			continue
+		}
 		if dp, ok := msg.(*SpotDepth); ok {
 			t.Logf("市场深度 (%d,%d) 买一: %+v, 卖一: %+v",
 				len(dp.Depth.Asks),

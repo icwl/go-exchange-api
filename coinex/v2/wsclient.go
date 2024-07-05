@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"compress/gzip"
 	"encoding/json"
-	"fmt"
 	"io"
 	"sync"
 	"time"
@@ -18,7 +17,6 @@ type WSClient struct {
 	url    string
 	cli    *websocket.Conn
 	stop   chan interface{}
-	read   chan interface{}
 	lock   *sync.Mutex
 	wait   *sync.WaitGroup
 	logger *zap.Logger
@@ -29,7 +27,6 @@ func NewWSClient(url string, logger *zap.Logger) *WSClient {
 		url:    url,
 		cli:    nil,
 		stop:   nil,
-		read:   nil,
 		lock:   new(sync.Mutex),
 		wait:   new(sync.WaitGroup),
 		logger: logger,
@@ -52,10 +49,6 @@ func (c *WSClient) Connect() error {
 
 	c.cli = cli
 	c.stop = make(chan interface{}, 1)
-	c.read = make(chan interface{}, 1000)
-
-	go c.Ping(3 * time.Second)
-	go c.Listen()
 
 	return nil
 }
@@ -79,12 +72,11 @@ func (c *WSClient) Close() error {
 
 	c.cli = nil
 	c.wait.Wait()
-	close(c.read)
 
 	return nil
 }
 
-func (c *WSClient) Ping(interval time.Duration) {
+func (c *WSClient) Ping(interval time.Duration) error {
 	c.wait.Add(1)
 	defer c.wait.Done()
 
@@ -98,89 +90,51 @@ func (c *WSClient) Ping(interval time.Duration) {
 	for {
 		select {
 		case <-c.stop:
-			return
+			return nil
 		case <-ticker.C:
 			if err := c.SendMethod(method, params); err != nil {
 				logger.Error("Send.Ping", zap.Error(err))
-				c.read <- errors.WithStack(err)
-				return
+				return errors.WithStack(err)
 			}
 		}
 	}
 }
 
-func (c *WSClient) Listen() {
-	c.wait.Add(1)
-	defer c.wait.Done()
-
-	var (
-		logger = c.logger
-	)
-
-	defer func() {
-		if err := recover(); err != nil {
-			err := fmt.Errorf("%s", err)
-			c.read <- errors.WithStack(err)
-		}
-	}()
-
-	for {
-		select {
-		case <-c.stop:
-			return
-		default:
-			if err := c.cli.SetReadDeadline(time.Now().Add(120 * time.Second)); err != nil {
-				logger.Error("SetReadDeadline", zap.Error(err))
-				c.read <- errors.WithStack(err)
-				return
-			}
-
-			_, msg, err := c.cli.ReadMessage()
-			if err != nil {
-				logger.Error("ReadMessage", zap.Error(err))
-				c.read <- errors.WithStack(err)
-				return
-			}
-
-			msg, err = GzipDecode(msg)
-			if err != nil {
-				logger.Error("UnZip", zap.Error(err))
-				c.read <- errors.WithStack(err)
-				return
-			}
-
-			var raw struct {
-				Method string          `json:"method"`
-				Data   json.RawMessage `json:"data"`
-				ID     interface{}     `json:"id"`
-			}
-
-			if err := json.Unmarshal(msg, &raw); err != nil {
-				logger.Error("Unmarshal", zap.Error(err))
-				c.read <- errors.WithStack(err)
-				return
-			}
-
-			switch raw.Method {
-			case "depth.update":
-				var dp *SpotDepth
-				if err := json.Unmarshal(raw.Data, &dp); err != nil {
-					c.logger.Error("Unmarshal", zap.String("data", string(raw.Data)))
-					c.read <- errors.WithStack(err)
-					break
-				}
-				c.read <- dp
-			}
-		}
+func (c *WSClient) Read() (interface{}, error) {
+	if err := c.cli.SetReadDeadline(time.Now().Add(120 * time.Second)); err != nil {
+		return nil, errors.WithStack(err)
 	}
-}
 
-func (c *WSClient) Message() chan interface{} {
-	return c.read
-}
+	_, msg, err := c.cli.ReadMessage()
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
 
-func (c *WSClient) Read() interface{} {
-	return <-c.read
+	msg, err = GzipDecode(msg)
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
+
+	var raw struct {
+		Method string          `json:"method"`
+		Data   json.RawMessage `json:"data"`
+		ID     interface{}     `json:"id"`
+	}
+
+	if err := json.Unmarshal(msg, &raw); err != nil {
+		return nil, errors.WithStack(err)
+	}
+
+	switch raw.Method {
+	case "depth.update":
+		var dp *SpotDepth
+		if err := json.Unmarshal(raw.Data, &dp); err != nil {
+			err = errors.Wrap(err, string(raw.Data))
+			return nil, errors.WithStack(err)
+		}
+		return dp, nil
+	}
+	return nil, nil
 }
 
 func (c *WSClient) Send(msg []byte) error {
