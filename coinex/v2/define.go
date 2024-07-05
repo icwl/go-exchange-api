@@ -18,14 +18,16 @@ type SpotMarket struct {
 	TakerFeeRate decimal.Decimal `json:"taker_fee_rate"`
 	// 最小交易量
 	MinAmount decimal.Decimal `json:"min_amount"`
-	BaseCcy   string          `json:"base_ccy"`
-	QuoteCcy  string          `json:"quote_ccy"`
+	// 交易币种
+	BaseCcy string `json:"base_ccy"`
+	// 报价币种
+	QuoteCcy string `json:"quote_ccy"`
 	// 交易币种精度
-	BaseCcyPrecision int `json:"base_ccy_precision"`
+	BaseCcyPrecision int32 `json:"base_ccy_precision"`
 	// 报价币种精度
-	QuoteCcyPrecision int  `json:"quote_ccy_precision"`
-	IsAmmAvailable    bool `json:"is_amm_available"`
-	IsMarginAvailable bool `json:"is_margin_available"`
+	QuoteCcyPrecision int32 `json:"quote_ccy_precision"`
+	IsAmmAvailable    bool  `json:"is_amm_available"`
+	IsMarginAvailable bool  `json:"is_margin_available"`
 }
 
 type SpotKLine struct {
@@ -50,10 +52,10 @@ type SpotKLine struct {
 type SpotDepth struct {
 	Depth struct {
 		// [[卖方价格, 卖方数量],...]
-		Asks [][]decimal.Decimal `json:"asks"`
+		Asks [][2]decimal.Decimal `json:"asks"`
 		// [[买方价格, 买方数量],...]
-		Bids     [][]decimal.Decimal `json:"bids"`
-		Checksum int64               `json:"checksum"`
+		Bids     [][2]decimal.Decimal `json:"bids"`
+		Checksum int64                `json:"checksum"`
 		// 最新价格
 		Last      decimal.Decimal `json:"last"`
 		UpdatedAt int64           `json:"updated_at"`
@@ -98,4 +100,10 @@ type DepositWithdrawConfig struct {
 		IsMemoRequiredForDeposit bool   `json:"is_memo_required_for_deposit"`
 		ExplorerAssetURL         string `json:"explorer_asset_url"`
 	} `json:"chains"`
+}
+
+type SpotBalance struct {
+	Ccy       string          `json:"ccy"`
+	Available decimal.Decimal `json:"available"`
+	Frozen    decimal.Decimal `json:"frozen"`
 }

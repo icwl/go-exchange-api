@@ -52,12 +52,15 @@ func NewHTTPClient(url, key, secret string, logger *zap.Logger) *httpClient {
 	}
 }
 
-func (c *httpClient) Request(method, path string, params url.Values, body map[string]interface{}, auth bool) ([]byte, error) {
+func (c *httpClient) Request(method, path string, query url.Values, body map[string]interface{}, auth bool) ([]byte, error) {
 	var (
-		query   = params.Encode()
-		reqBody []byte
+		rawQuery string
+		reqBody  []byte
 	)
 
+	if query != nil {
+		rawQuery = query.Encode()
+	}
 	if body != nil {
 		var err error
 		reqBody, err = json.Marshal(body)
@@ -70,14 +73,14 @@ func (c *httpClient) Request(method, path string, params url.Values, body map[st
 		return nil, errors.WithStack(err)
 	}
 
-	req.URL.RawQuery = query
+	req.URL.RawQuery = rawQuery
 	req.Header.Set("Accept", "application/json")
 	req.Header.Set("Content-Type", "application/json")
 
 	if auth {
 		timestamp := strconv.FormatInt(time.Now().Unix(), 10)
 		req.Header.Add("KEY", c.key)
-		req.Header.Add("SIGN", Sign(method, path, query, reqBody, timestamp, c.secret))
+		req.Header.Add("SIGN", Sign(method, path, rawQuery, reqBody, timestamp, c.secret))
 		req.Header.Add("Timestamp", timestamp)
 
 		c.logger.Info("Request",

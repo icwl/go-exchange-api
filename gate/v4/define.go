@@ -5,8 +5,8 @@ import (
 )
 
 const (
-	HTTPClientURL = "https://api.gateio.ws"
-	WSClientURL   = "wss://api.gateio.ws"
+	HTTPURL = "https://api.gateio.ws"
+	WSURL   = "wss://api.gateio.ws"
 
 	CandleGroupSecOneMinute      = 60     // 1分钟
 	CandleGroupSecFiveMinutes    = 300    // 5分钟

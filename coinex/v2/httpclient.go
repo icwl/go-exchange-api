@@ -31,13 +31,13 @@ func NewHTTPClient(url, key, secret string, logger *zap.Logger) *HTTPClient {
 	}
 }
 
-func (c *HTTPClient) Request(method, path string, params url.Values, body map[string]interface{}, auth bool) ([]byte, error) {
+func (c *HTTPClient) Request(method, path string, query url.Values, body map[string]interface{}, auth bool) ([]byte, error) {
 	var (
 		reqBody []byte
 	)
 
-	if params != nil {
-		path = path + "?" + params.Encode()
+	if query != nil {
+		path = path + "?" + queryEncode()
 	}
 
 	if body != nil {
@@ -106,12 +106,12 @@ func (c *HTTPClient) Request(method, path string, params url.Values, body map[st
 func (c *HTTPClient) SpotMarket(market string) ([]*SpotMarket, error) {
 	method := http.MethodGet
 	path := "/v2/spot/market"
-	params := url.Values{}
+	query := url.Values{}
 	if market != "" {
-		params.Add("market", market)
+		query.Add("market", market)
 	}
 
-	resp, err := c.Request(method, path, params, nil, false)
+	resp, err := c.Request(method, path, query, nil, false)
 	if err != nil {
 		c.logger.Error(path, zap.Error(err))
 		return nil, errors.WithStack(err)
@@ -146,17 +146,17 @@ func (c *HTTPClient) SpotMarket(market string) ([]*SpotMarket, error) {
 func (c *HTTPClient) SpotKLine(market, priceType string, limit int, period string) ([]*SpotKLine, error) {
 	method := http.MethodGet
 	path := "/v2/spot/kline"
-	params := url.Values{}
-	params.Add("market", market)
+	query := url.Values{}
+	query.Add("market", market)
 	if priceType != "" {
-		params.Add("price_type", priceType)
+		query.Add("price_type", priceType)
 	}
 	if limit != 0 {
-		params.Add("limit", strconv.Itoa(limit))
+		query.Add("limit", strconv.Itoa(limit))
 	}
-	params.Add("period", period)
+	query.Add("period", period)
 
-	resp, err := c.Request(method, path, params, nil, false)
+	resp, err := c.Request(method, path, query, nil, false)
 	if err != nil {
 		c.logger.Error(path, zap.Error(err))
 		return nil, errors.WithStack(err)
@@ -190,12 +190,12 @@ func (c *HTTPClient) SpotKLine(market, priceType string, limit int, period strin
 func (c *HTTPClient) SpotDepth(market string, limit int, interval string) (*SpotDepth, error) {
 	method := http.MethodGet
 	path := "/v2/spot/depth"
-	params := url.Values{}
-	params.Add("market", market)
-	params.Add("limit", strconv.Itoa(limit))
-	params.Add("interval", interval)
+	query := url.Values{}
+	query.Add("market", market)
+	query.Add("limit", strconv.Itoa(limit))
+	query.Add("interval", interval)
 
-	resp, err := c.Request(method, path, params, nil, false)
+	resp, err := c.Request(method, path, query, nil, false)
 	if err != nil {
 		c.logger.Error(path, zap.Error(err))
 		return nil, errors.WithStack(err)
@@ -226,10 +226,10 @@ func (c *HTTPClient) SpotDepth(market string, limit int, interval string) (*Spot
 func (c *HTTPClient) DepositWithdrawConfig(ccy string) (*DepositWithdrawConfig, error) {
 	method := http.MethodGet
 	path := "/v2/assets/deposit-withdraw-config"
-	params := url.Values{}
-	params.Add("ccy", ccy)
+	query := url.Values{}
+	query.Add("ccy", ccy)
 
-	resp, err := c.Request(method, path, params, nil, false)
+	resp, err := c.Request(method, path, query, nil, false)
 	if err != nil {
 		c.logger.Error(path, zap.Error(err))
 		return nil, errors.WithStack(err)
