@@ -54,13 +54,10 @@ func NewHTTPClient(url, key, secret string, logger *zap.Logger) *httpClient {
 
 func (c *httpClient) Request(method, path string, query url.Values, body map[string]interface{}, auth bool) ([]byte, error) {
 	var (
-		rawQuery string
+		rawQuery = query.Encode()
 		reqBody  []byte
 	)
 
-	if query != nil {
-		rawQuery = query.Encode()
-	}
 	if body != nil {
 		var err error
 		reqBody, err = json.Marshal(body)
@@ -167,15 +164,15 @@ func (c *httpClient) CurrencyPairs() ([]*CurrencyPair, error) {
 func (c *httpClient) OrderBook(pair, interval string, limit int) (*OrderBook, error) {
 	method := http.MethodGet
 	path := "/api/v4/spot/order_book"
-	params := url.Values{}
-	params.Add("currency_pair", pair)
+	query := url.Values{}
+	query.Add("currency_pair", pair)
 	if interval != "" {
-		params.Add("interval", interval)
+		query.Add("interval", interval)
 	}
 	if limit != 0 {
-		params.Add("limit", strconv.Itoa(limit))
+		query.Add("limit", strconv.Itoa(limit))
 	}
-	respBody, err := c.Request(method, path, params, nil, false)
+	respBody, err := c.Request(method, path, query, nil, false)
 	if err != nil {
 		c.logger.Error(path, zap.Error(err))
 		return nil, errors.WithStack(err)
@@ -205,11 +202,11 @@ func (c *httpClient) OrderBook(pair, interval string, limit int) (*OrderBook, er
 func (c *httpClient) Accounts(currency string) ([]*Account, error) {
 	method := http.MethodGet
 	path := "/api/v4/spot/accounts"
-	params := url.Values{}
+	query := url.Values{}
 	if currency != "" {
-		params.Add("currency", currency)
+		query.Add("currency", currency)
 	}
-	respBody, err := c.Request(method, path, params, nil, true)
+	respBody, err := c.Request(method, path, query, nil, true)
 	if err != nil {
 		c.logger.Error(path, zap.Error(err))
 		return nil, errors.WithStack(err)
@@ -229,17 +226,17 @@ func (c *httpClient) Accounts(currency string) ([]*Account, error) {
 func (c *httpClient) OpenOrders(page, limit int, account string) ([]*Order, error) {
 	method := http.MethodGet
 	path := "/api/v4/spot/open_orders"
-	params := url.Values{}
+	query := url.Values{}
 	if page != 0 {
-		params.Add("page", strconv.Itoa(page))
+		query.Add("page", strconv.Itoa(page))
 	}
 	if limit != 0 {
-		params.Add("limit", strconv.Itoa(limit))
+		query.Add("limit", strconv.Itoa(limit))
 	}
 	if account != "" {
-		params.Add("account", account)
+		query.Add("account", account)
 	}
-	respBody, err := c.Request(method, path, params, nil, true)
+	respBody, err := c.Request(method, path, query, nil, true)
 	if err != nil {
 		c.logger.Error(path, zap.Error(err))
 		return nil, errors.WithStack(err)
@@ -300,13 +297,13 @@ func (c *httpClient) NewOrder(text, pair, type_, account, side, amount, price st
 func (c *httpClient) CancelOrder(orderId, pair, account string) (*Order, error) {
 	method := http.MethodDelete
 	path := fmt.Sprintf("/api/v4/spot/orders/%s", orderId)
-	params := url.Values{}
-	params.Add("currency_pair", pair)
+	query := url.Values{}
+	query.Add("currency_pair", pair)
 	if account != "" {
-		params.Add("account", account)
+		query.Add("account", account)
 	}
 
-	respBody, err := c.Request(method, path, params, nil, true)
+	respBody, err := c.Request(method, path, query, nil, true)
 	if err != nil {
 		c.logger.Error(method+" "+path, zap.Error(err))
 		return nil, errors.WithStack(err)
@@ -325,12 +322,12 @@ func (c *httpClient) CancelOrder(orderId, pair, account string) (*Order, error) 
 func (c *httpClient) GetOrder(orderId, pair, account string) (*Order, error) {
 	method := http.MethodGet
 	path := fmt.Sprintf("/api/v4/spot/orders/%s", orderId)
-	params := url.Values{}
-	params.Add("currency_pair", pair)
+	query := url.Values{}
+	query.Add("currency_pair", pair)
 	if account != "" {
-		params.Add("account", account)
+		query.Add("account", account)
 	}
-	respBody, err := c.Request(method, path, params, nil, true)
+	respBody, err := c.Request(method, path, query, nil, true)
 	if err != nil {
 		c.logger.Error(path, zap.Error(err))
 		return nil, errors.WithStack(err)
@@ -349,10 +346,10 @@ func (c *httpClient) GetOrder(orderId, pair, account string) (*Order, error) {
 func (c *httpClient) DepositAddress(currency string) (*Address, error) {
 	method := http.MethodGet
 	path := "/api/v4/wallet/deposit_address"
-	params := url.Values{}
-	params.Add("currency", currency)
+	query := url.Values{}
+	query.Add("currency", currency)
 
-	respBody, err := c.Request(method, path, params, nil, true)
+	respBody, err := c.Request(method, path, query, nil, true)
 	if err != nil {
 		c.logger.Error(path, zap.Error(err))
 		return nil, errors.WithStack(err)

@@ -10,7 +10,7 @@ import (
 func TestWSClient_SubOrderBook(t *testing.T) {
 	logger, _ := zap.NewDevelopment()
 	cli := NewWSClient(wsURL, logger)
-	if err := cli.Connect(true); err != nil {
+	if err := cli.Connect(); err != nil {
 		t.Fatal(err)
 	}
 	if err := cli.SubOrderBook("BTC_USDT", "10", "100ms"); err != nil {

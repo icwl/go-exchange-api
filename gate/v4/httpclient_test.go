@@ -13,8 +13,8 @@ var (
 	pKey     = flag.String("key", "", "key")
 	pSecret  = flag.String("secret", "", "secret")
 	pSymbol  = flag.String("symbol", "btc_usdt", "symbol")
-	pHTTPURL = flag.String("http_url", HTTPClientURL, "http_url")
-	pWSURL   = flag.String("ws_url", WSClientURL, "ws_url")
+	pHTTPURL = flag.String("http_url", HTTPURL, "http_url")
+	pWSURL   = flag.String("ws_url", WSURL, "ws_url")
 
 	key     string
 	secret  string

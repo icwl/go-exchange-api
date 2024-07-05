@@ -6,22 +6,13 @@ import (
 	"sync"
 	"time"
 
-	"github.com/shopspring/decimal"
-
 	"github.com/gorilla/websocket"
 	"github.com/pkg/errors"
+	"github.com/shopspring/decimal"
 	"go.uber.org/zap"
 )
 
-type Websocket interface {
-	Connect(out bool) error
-	Close() error
-	SubOrderBook(cp, level, interval string) error
-	Read() interface{}
-	Message() chan interface{}
-}
-
-type wsClient struct {
+type WSClient struct {
 	url    string
 	cli    *websocket.Conn
 	stop   chan interface{}
@@ -31,12 +22,12 @@ type wsClient struct {
 	logger *zap.Logger
 }
 
-func NewWSClient(url string, logger *zap.Logger) *wsClient {
-	ws := &wsClient{
+func NewWSClient(url string, logger *zap.Logger) *WSClient {
+	ws := &WSClient{
 		url:    url,
 		cli:    nil,
-		stop:   make(chan interface{}, 1),
-		read:   make(chan interface{}, 1000),
+		stop:   nil,
+		read:   nil,
 		lock:   new(sync.Mutex),
 		wait:   new(sync.WaitGroup),
 		logger: logger,
@@ -45,7 +36,7 @@ func NewWSClient(url string, logger *zap.Logger) *wsClient {
 	return ws
 }
 
-func (c *wsClient) Ping(interval time.Duration) {
+func (c *WSClient) Ping(interval time.Duration) {
 	c.wait.Add(1)
 	defer c.wait.Done()
 
@@ -69,7 +60,7 @@ func (c *wsClient) Ping(interval time.Duration) {
 	}
 }
 
-func (c *wsClient) Listen() {
+func (c *WSClient) Listen() {
 	c.wait.Add(1)
 	defer c.wait.Done()
 
@@ -144,7 +135,7 @@ func (c *wsClient) Listen() {
 	}
 }
 
-func (c *wsClient) Connect(out bool) error {
+func (c *WSClient) Connect() error {
 	var (
 		logger = c.logger
 	)
@@ -157,6 +148,8 @@ func (c *wsClient) Connect(out bool) error {
 	logger.Info("connect websocket", zap.String("url", c.url))
 
 	c.cli = cli
+	c.stop = make(chan interface{}, 1)
+	c.read = make(chan interface{}, 1000)
 
 	go c.Ping(10 * time.Second)
 	go c.Listen()
@@ -164,9 +157,7 @@ func (c *wsClient) Connect(out bool) error {
 	return nil
 }
 
-func (c *wsClient) Close() error {
-	close(c.stop)
-
+func (c *WSClient) Close() error {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 
@@ -174,6 +165,7 @@ func (c *wsClient) Close() error {
 		return nil
 	}
 
+	close(c.stop)
 	if err := c.cli.Close(); err != nil {
 		if err.Error() != "tls: use of closed connection" {
 			return errors.WithStack(err)
@@ -189,7 +181,7 @@ func (c *wsClient) Close() error {
 	return nil
 }
 
-func (c *wsClient) Send(msg []byte) error {
+func (c *WSClient) Send(msg []byte) error {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 
@@ -205,7 +197,7 @@ func (c *wsClient) Send(msg []byte) error {
 	return nil
 }
 
-func (c *wsClient) SendChannel(channel string, fields map[string]interface{}) error {
+func (c *WSClient) SendChannel(channel string, fields map[string]interface{}) error {
 	if fields == nil {
 		fields = make(map[string]interface{})
 	}
@@ -219,22 +211,22 @@ func (c *wsClient) SendChannel(channel string, fields map[string]interface{}) er
 	return c.Send(msg)
 }
 
-func (c *wsClient) Sub(channel string, payload []interface{}) error {
+func (c *WSClient) Sub(channel string, payload []interface{}) error {
 	return c.SendChannel(channel, map[string]interface{}{
 		"event":   "subscribe",
 		"payload": payload,
 	})
 }
 
-func (c *wsClient) SubOrderBook(cp, level, interval string) error {
+func (c *WSClient) SubOrderBook(cp, level, interval string) error {
 	channel := "spot.order_book"
 	return c.Sub(channel, []interface{}{cp, level, interval})
 }
 
-func (c *wsClient) Read() interface{} {
+func (c *WSClient) Read() interface{} {
 	return <-c.read
 }
 
-func (c *wsClient) Message() chan interface{} {
+func (c *WSClient) Message() chan interface{} {
 	return c.read
 }

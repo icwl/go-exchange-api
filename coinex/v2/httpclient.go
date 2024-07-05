@@ -37,7 +37,7 @@ func (c *HTTPClient) Request(method, path string, query url.Values, body map[str
 	)
 
 	if query != nil {
-		path = path + "?" + queryEncode()
+		path = path + "?" + query.Encode()
 	}
 
 	if body != nil {
@@ -239,6 +239,296 @@ func (c *HTTPClient) DepositWithdrawConfig(ccy string) (*DepositWithdrawConfig, 
 		Code    int                    `json:"code"`
 		Data    *DepositWithdrawConfig `json:"data"`
 		Message string                 `json:"message"`
+	}
+
+	if err := json.Unmarshal(resp, &reply); err != nil {
+		c.logger.Error(path, zap.String("resp", string(resp)), zap.Error(err))
+		err := ErrResponseBody(resp)
+		return nil, errors.WithStack(err)
+	}
+
+	if reply.Code != 0 {
+		c.logger.Error(path, zap.String("resp", string(resp)), zap.Error(err))
+		err := NewErrResponse(reply.Code, reply.Message)
+		return nil, errors.WithStack(err)
+	}
+
+	return reply.Data, nil
+}
+
+func (c *HTTPClient) DepositAddress(ccy, chain string) (*DepositAddress, error) {
+	method := http.MethodGet
+	path := "/v2/assets/deposit-address"
+	query := url.Values{}
+	query.Add("ccy", ccy)
+	query.Add("chain", chain)
+
+	resp, err := c.Request(method, path, query, nil, true)
+	if err != nil {
+		c.logger.Error(path, zap.Error(err))
+		return nil, errors.WithStack(err)
+	}
+
+	var reply struct {
+		Code    int             `json:"code"`
+		Data    *DepositAddress `json:"data"`
+		Message string          `json:"message"`
+	}
+
+	if err := json.Unmarshal(resp, &reply); err != nil {
+		c.logger.Error(path, zap.String("resp", string(resp)), zap.Error(err))
+		err := ErrResponseBody(resp)
+		return nil, errors.WithStack(err)
+	}
+
+	if reply.Code != 0 {
+		c.logger.Error(path, zap.String("resp", string(resp)), zap.Error(err))
+		err := NewErrResponse(reply.Code, reply.Message)
+		return nil, errors.WithStack(err)
+	}
+
+	return reply.Data, nil
+}
+
+// - ccy 币种名称
+// - chain 公链名称, 链上提现时必填, 站内转账时不必填
+// - to_address 提现地址. 提现地址需要先通过开发者控制台添加IP白名单, 链上提现或者站内转账都需要先添加白名单
+// - withdraw_method 提现方法, 链上提现(on_chain) 或者 站内转账(inter_user), 默认为链上提现
+// - memo 部分币种充值需要 memo
+// - amount 提现数量
+// - extra 如果是KDA链的提现, 需要在extra字段中附加chain_id字段
+// - remark 提现备注
+func (c *HTTPClient) Withdraw(ccy, chain, toAddress, withdrawMethod, memo, amount string, extra interface{}, remark string) (*Withdraw, error) {
+	method := http.MethodPost
+	path := "/v2/assets/withdraw"
+	body := make(map[string]interface{})
+	body["ccy"] = ccy
+	if chain != "" {
+		body["chain"] = chain
+	}
+	body["to_address"] = toAddress
+	if withdrawMethod != "" {
+		body["withdraw_method"] = withdrawMethod
+	}
+	if memo != "" {
+		body["memo"] = memo
+	}
+	body["amount"] = amount
+	if extra != nil {
+		body["extra"] = extra
+	}
+	if remark != "" {
+		body["remark"] = remark
+	}
+
+	resp, err := c.Request(method, path, nil, body, true)
+	if err != nil {
+		c.logger.Error(method+" "+path, zap.Error(err))
+		return nil, errors.WithStack(err)
+	}
+
+	var reply struct {
+		Code    int       `json:"code"`
+		Data    *Withdraw `json:"data"`
+		Message string    `json:"message"`
+	}
+	if err := json.Unmarshal(resp, &reply); err != nil {
+		c.logger.Error(method+" "+path, zap.String("resp", string(resp)), zap.Error(err))
+		err := ErrResponseBody(resp)
+		return nil, errors.WithStack(err)
+	}
+
+	if reply.Code != 0 {
+		c.logger.Error(method+" "+path, zap.String("resp", string(resp)), zap.Error(err))
+		err := NewErrResponse(reply.Code, reply.Message)
+		return nil, errors.WithStack(err)
+	}
+
+	return reply.Data, nil
+}
+
+func (c *HTTPClient) SpotBalance() ([]*SpotBalance, error) {
+	method := http.MethodGet
+	path := "/v2/assets/spot/balance"
+
+	resp, err := c.Request(method, path, nil, nil, true)
+	if err != nil {
+		c.logger.Error(path, zap.Error(err))
+		return nil, errors.WithStack(err)
+	}
+
+	var reply struct {
+		Code    int            `json:"code"`
+		Data    []*SpotBalance `json:"data"`
+		Message string         `json:"message"`
+	}
+
+	if err := json.Unmarshal(resp, &reply); err != nil {
+		c.logger.Error(path, zap.String("resp", string(resp)), zap.Error(err))
+		err := ErrResponseBody(resp)
+		return nil, errors.WithStack(err)
+	}
+
+	if reply.Code != 0 {
+		c.logger.Error(path, zap.String("resp", string(resp)), zap.Error(err))
+		err := NewErrResponse(reply.Code, reply.Message)
+		return nil, errors.WithStack(err)
+	}
+
+	return reply.Data, nil
+}
+
+// - market 市场名称
+// - market_type 市场类型 [SPOT / MARGIN / FUTURES]
+// - side 订单方向 [buy / sell]
+// - type 订单类型 [limit / market / maker_only / ioc / fok]
+// - amount 委托数量
+// - price 委托价格
+// - client_id 客户自定义 ID
+func (c *HTTPClient) SpotOrder(market, marketType, side, type_, ccy, amount, price, clientId string) (*SpotOrder, error) {
+	method := http.MethodPost
+	path := "/v2/spot/order"
+	body := make(map[string]interface{})
+	body["market"] = market
+	body["market_type"] = marketType
+	body["side"] = side
+	body["type"] = type_
+	if ccy != "" {
+		body["ccy"] = ccy
+	}
+	body["amount"] = amount
+	if price != "" {
+		body["price"] = price
+	}
+	if clientId != "" {
+		body["client_id"] = clientId
+	}
+
+	resp, err := c.Request(method, path, nil, body, true)
+	if err != nil {
+		c.logger.Error(method+" "+path, zap.Error(err))
+		return nil, errors.WithStack(err)
+	}
+
+	var reply struct {
+		Code    int        `json:"code"`
+		Data    *SpotOrder `json:"data"`
+		Message string     `json:"message"`
+	}
+	if err := json.Unmarshal(resp, &reply); err != nil {
+		c.logger.Error(method+" "+path, zap.String("resp", string(resp)), zap.Error(err))
+		err := ErrResponseBody(resp)
+		return nil, errors.WithStack(err)
+	}
+
+	if reply.Code != 0 {
+		c.logger.Error(method+" "+path, zap.String("resp", string(resp)), zap.Error(err))
+		err := NewErrResponse(reply.Code, reply.Message)
+		return nil, errors.WithStack(err)
+	}
+
+	return reply.Data, nil
+}
+
+func (c *HTTPClient) SpotCancelOrder(market, marketType string, orderID int64) (*SpotOrder, error) {
+	method := http.MethodPost
+	path := "/v2/spot/cancel-order"
+	body := make(map[string]interface{})
+	body["market"] = market
+	body["market_type"] = marketType
+	body["order_id"] = orderID
+
+	resp, err := c.Request(method, path, nil, body, true)
+	if err != nil {
+		c.logger.Error(method+" "+path, zap.Error(err))
+		return nil, errors.WithStack(err)
+	}
+
+	var reply struct {
+		Code    int        `json:"code"`
+		Data    *SpotOrder `json:"data"`
+		Message string     `json:"message"`
+	}
+	if err := json.Unmarshal(resp, &reply); err != nil {
+		c.logger.Error(method+" "+path, zap.String("resp", string(resp)), zap.Error(err))
+		err := ErrResponseBody(resp)
+		return nil, errors.WithStack(err)
+	}
+
+	if reply.Code != 0 {
+		c.logger.Error(method+" "+path, zap.String("resp", string(resp)), zap.Error(err))
+		err := NewErrResponse(reply.Code, reply.Message)
+		return nil, errors.WithStack(err)
+	}
+
+	return reply.Data, nil
+}
+
+func (c *HTTPClient) SpotOrderStatus(market string, orderID int64) (*SpotOrder, error) {
+	method := http.MethodGet
+	path := "/v2/spot/order-status"
+	query := url.Values{}
+	query.Add("market", market)
+	query.Add("order_id", strconv.FormatInt(orderID, 10))
+
+	resp, err := c.Request(method, path, query, nil, true)
+	if err != nil {
+		c.logger.Error(path, zap.Error(err))
+		return nil, errors.WithStack(err)
+	}
+
+	var reply struct {
+		Code    int        `json:"code"`
+		Data    *SpotOrder `json:"data"`
+		Message string     `json:"message"`
+	}
+
+	if err := json.Unmarshal(resp, &reply); err != nil {
+		c.logger.Error(path, zap.String("resp", string(resp)), zap.Error(err))
+		err := ErrResponseBody(resp)
+		return nil, errors.WithStack(err)
+	}
+
+	if reply.Code != 0 {
+		c.logger.Error(path, zap.String("resp", string(resp)), zap.Error(err))
+		err := NewErrResponse(reply.Code, reply.Message)
+		return nil, errors.WithStack(err)
+	}
+
+	return reply.Data, nil
+}
+
+func (c *HTTPClient) SpotFinishedOrder(market, market_type, side string, page, limit int) ([]*SpotOrder, error) {
+	method := http.MethodGet
+	path := "/v2/spot/finished-order"
+	query := url.Values{}
+	if market != "" {
+		query.Add("market", market)
+	}
+	query.Add("market_type", market_type)
+	if side != "" {
+		query.Add("side", side)
+	}
+	if page != 0 {
+		query.Add("page", strconv.Itoa(page))
+	}
+	if limit != 0 {
+		query.Add("limit", strconv.Itoa(limit))
+	}
+
+	resp, err := c.Request(method, path, query, nil, true)
+	if err != nil {
+		c.logger.Error(path, zap.Error(err))
+		return nil, errors.WithStack(err)
+	}
+
+	var reply struct {
+		Code       int          `json:"code"`
+		Data       []*SpotOrder `json:"data"`
+		Message    string       `json:"message"`
+		Pagination struct {
+			HasNext bool `json:"has_next"`
+		} `json:"pagination"`
 	}
 
 	if err := json.Unmarshal(resp, &reply); err != nil {

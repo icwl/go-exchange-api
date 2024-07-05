@@ -7,6 +7,25 @@ import (
 const (
 	HTTPURL = "https://api.coinex.com"
 	WSURL   = "wss://socket.coinex.com"
+
+	WithdrawMethodOnChain   = "on_chain"
+	WithdrawMethodInterUser = "inter_user"
+
+	MarketTypeSpot    = "SPOT"
+	MarketTypeMargin  = "MARGIN"
+	MarketTypeFutures = "FUTURES"
+
+	OrderTypeLimit     = "limit"      // 限价单, 一直生效, GTC 订单
+	OrderTypeMarket    = "market"     // 市价单
+	OrderTypeMakerOnly = "maker_only" // 只做 maker 单, post_only 订单
+	OrderTypeIOC       = "ioc"        // 立即成交或取消
+	OrderTypeFOK       = "fok"        // 全部成交或全部取消
+
+	OrderStatusOpen         = "open"          // 已提交，等待成交;
+	OrderStatusPartFilled   = "part_filled"   // 部分成交(订单仍在挂单中);
+	OrderStatusFilled       = "filled"        // 完全成交(订单已完成);
+	OrderStatusPartCanceled = "part_canceled" // 已撤销部分成交(订单成交部分后被撤销);
+	OrderStatusCanceled     = "canceled"      // 订单已取消(订单已完成);为了保证服务器性能，所有取消的没有任何成交的订单均不会保存
 )
 
 type SpotMarket struct {
@@ -102,8 +121,75 @@ type DepositWithdrawConfig struct {
 	} `json:"chains"`
 }
 
+type DepositAddress struct {
+	Address string `json:"address"`
+	Memo    string `json:"memo"`
+}
+
+type Withdraw struct {
+	WithdrawID         int64           `json:"withdraw_id"`
+	CreatedAt          int64           `json:"created_at"`
+	Ccy                string          `json:"ccy"`
+	Chain              string          `json:"chain"`
+	Amount             decimal.Decimal `json:"amount"`
+	ActualAmount       decimal.Decimal `json:"actual_amount"`
+	WithdrawMethod     string          `json:"withdraw_method"`
+	Memo               string          `json:"memo"`
+	TxFee              decimal.Decimal `json:"tx_fee"`
+	TxID               string          `json:"tx_id"`
+	ToAddress          string          `json:"to_address"`
+	Confirmations      int             `json:"confirmations"`
+	ExplorerAddressURL string          `json:"explorer_address_url"`
+	ExplorerTxURL      string          `json:"explorer_tx_url"`
+	Status             string          `json:"status"`
+	Remark             string          `json:"remark"`
+}
+
 type SpotBalance struct {
 	Ccy       string          `json:"ccy"`
 	Available decimal.Decimal `json:"available"`
 	Frozen    decimal.Decimal `json:"frozen"`
+}
+
+type SpotOrder struct {
+	// 订单 ID
+	OrderID int64 `json:"order_id"`
+	// 市场名称
+	Market string `json:"market"`
+	// 市场类型
+	MarketType string `json:"market_type"`
+	// 币种名称
+	Ccy string `json:"ccy"`
+	// 订单方向
+	Side string `json:"side"`
+	// 订单类型
+	Type string `json:"type"`
+	// 委托数量
+	Amount decimal.Decimal `json:"amount"`
+	// 委托价格
+	Price decimal.Decimal `json:"price"`
+	// 未成交数量
+	UnfilledAmount decimal.Decimal `json:"unfilled_amount"`
+	// 已成交数量
+	FilledAmount decimal.Decimal `json:"filled_amount"`
+	// 已成交价值
+	FilledValue decimal.Decimal `json:"filled_value"`
+	// 客户端 ID
+	ClientID string `json:"client_id"`
+	// 收取的交易币种手续费
+	BaseFee decimal.Decimal `json:"base_fee"`
+	// 收取的报价币种手续费
+	QuoteFee decimal.Decimal `json:"quote_fee"`
+	// 收取的抵扣币种手续费
+	DiscountFee decimal.Decimal `json:"discount_fee"`
+	// maker 手续费费率
+	MakerFeeRate decimal.Decimal `json:"maker_fee_rate"`
+	// taker 手续费费率
+	TakerFeeRate decimal.Decimal `json:"taker_fee_rate"`
+	CreatedAt    int64           `json:"created_at"`
+	UpdatedAt    int64           `json:"updated_at"`
+	// 注意: last_fill_amount,last_fill_price,status可能不返回
+	LastFillAmount string `json:"last_fill_amount"`
+	LastFillPrice  string `json:"last_fill_price"`
+	Status         string `json:"status"`
 }
