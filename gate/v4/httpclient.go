@@ -15,25 +15,7 @@ import (
 	"go.uber.org/zap"
 )
 
-type HTTPClient interface {
-	// 查询所有币种信息
-	Currencies() ([]*Currency, error)
-	// 查询支持的所有交易对
-	CurrencyPairs() ([]*CurrencyPair, error)
-	// 获取市场深度信息
-	OrderBook(pair, interval string, limit int) (*OrderBook, error)
-	// 获取现货交易账户列表
-	Accounts(currency string) ([]*Account, error)
-	// 查询所有挂单
-	OpenOrders(page, limit int, account string) ([]*Order, error)
-	NewOrder(text, pair, type_, account, side, amount, price string) (*Order, error)
-	CancelOrder(orderId, pair, account string) (*Order, error)
-	GetOrder(orderId, pair, account string) (*Order, error)
-	DepositAddress(currency string) (*Address, error)
-	Withdrawal(amount, currency, address, memo, chain string) (*Withdrawal, error)
-}
-
-type httpClient struct {
+type HTTPClient struct {
 	url    string
 	key    string
 	secret string
@@ -41,8 +23,8 @@ type httpClient struct {
 	logger *zap.Logger
 }
 
-func NewHTTPClient(url, key, secret string, logger *zap.Logger) *httpClient {
-	return &httpClient{
+func NewHTTPClient(url, key, secret string, logger *zap.Logger) *HTTPClient {
+	return &HTTPClient{
 		url:    url,
 		key:    key,
 		secret: secret,
@@ -51,7 +33,7 @@ func NewHTTPClient(url, key, secret string, logger *zap.Logger) *httpClient {
 	}
 }
 
-func (c *httpClient) Request(method, path string, query url.Values, body map[string]interface{}, auth bool) ([]byte, error) {
+func (c *HTTPClient) Request(method, path string, query url.Values, body map[string]interface{}, auth bool) ([]byte, error) {
 	var (
 		rawQuery = query.Encode()
 		reqBody  []byte
@@ -120,7 +102,7 @@ func (c *httpClient) Request(method, path string, query url.Values, body map[str
 }
 
 // 查询所有币种信息
-func (c *httpClient) Currencies() ([]*Currency, error) {
+func (c *HTTPClient) Currencies() ([]*Currency, error) {
 	method := http.MethodGet
 	path := "/api/v4/spot/currencies"
 	respBody, err := c.Request(method, path, nil, nil, false)
@@ -140,7 +122,7 @@ func (c *httpClient) Currencies() ([]*Currency, error) {
 }
 
 // 查询支持的所有交易对
-func (c *httpClient) CurrencyPairs() ([]*CurrencyPair, error) {
+func (c *HTTPClient) CurrencyPairs() ([]*CurrencyPair, error) {
 	method := http.MethodGet
 	path := "/api/v4/spot/currency_pairs"
 	respBody, err := c.Request(method, path, nil, nil, false)
@@ -160,7 +142,7 @@ func (c *httpClient) CurrencyPairs() ([]*CurrencyPair, error) {
 }
 
 // 获取市场深度信息
-func (c *httpClient) OrderBook(pair, interval string, limit int) (*OrderBook, error) {
+func (c *HTTPClient) OrderBook(pair, interval string, limit int) (*OrderBook, error) {
 	method := http.MethodGet
 	path := "/api/v4/spot/order_book"
 	query := url.Values{}
@@ -198,7 +180,7 @@ func (c *httpClient) OrderBook(pair, interval string, limit int) (*OrderBook, er
 }
 
 // 获取现货交易账户列表
-func (c *httpClient) Accounts(currency string) ([]*Account, error) {
+func (c *HTTPClient) Accounts(currency string) ([]*Account, error) {
 	method := http.MethodGet
 	path := "/api/v4/spot/accounts"
 	query := url.Values{}
@@ -222,7 +204,7 @@ func (c *httpClient) Accounts(currency string) ([]*Account, error) {
 }
 
 // 查询所有挂单
-func (c *httpClient) OpenOrders(page, limit int, account string) ([]*Order, error) {
+func (c *HTTPClient) OpenOrders(page, limit int, account string) ([]*Order, error) {
 	method := http.MethodGet
 	path := "/api/v4/spot/open_orders"
 	query := url.Values{}
@@ -259,7 +241,7 @@ func (c *httpClient) OpenOrders(page, limit int, account string) ([]*Order, erro
 	return orders, nil
 }
 
-func (c *httpClient) NewOrder(text, pair, type_, account, side, amount, price string) (*Order, error) {
+func (c *HTTPClient) NewOrder(text, pair, type_, account, side, amount, price string) (*Order, error) {
 	method := http.MethodPost
 	path := "/api/v4/spot/orders"
 	body := make(map[string]interface{})
@@ -293,7 +275,7 @@ func (c *httpClient) NewOrder(text, pair, type_, account, side, amount, price st
 	return reply, nil
 }
 
-func (c *httpClient) CancelOrder(orderId, pair, account string) (*Order, error) {
+func (c *HTTPClient) CancelOrder(orderId, pair, account string) (*Order, error) {
 	method := http.MethodDelete
 	path := fmt.Sprintf("/api/v4/spot/orders/%s", orderId)
 	query := url.Values{}
@@ -318,7 +300,7 @@ func (c *httpClient) CancelOrder(orderId, pair, account string) (*Order, error) 
 	return reply, nil
 }
 
-func (c *httpClient) GetOrder(orderId, pair, account string) (*Order, error) {
+func (c *HTTPClient) GetOrder(orderId, pair, account string) (*Order, error) {
 	method := http.MethodGet
 	path := fmt.Sprintf("/api/v4/spot/orders/%s", orderId)
 	query := url.Values{}
@@ -342,7 +324,7 @@ func (c *httpClient) GetOrder(orderId, pair, account string) (*Order, error) {
 	return reply, nil
 }
 
-func (c *httpClient) DepositAddress(currency string) (*Address, error) {
+func (c *HTTPClient) DepositAddress(currency string) (*Address, error) {
 	method := http.MethodGet
 	path := "/api/v4/wallet/deposit_address"
 	query := url.Values{}
@@ -364,7 +346,7 @@ func (c *httpClient) DepositAddress(currency string) (*Address, error) {
 	return reply, nil
 }
 
-func (c *httpClient) Withdrawal(amount, currency, address, memo, chain string) (*Withdrawal, error) {
+func (c *HTTPClient) Withdrawal(amount, currency, address, memo, chain string) (*Withdrawal, error) {
 	method := http.MethodPost
 	path := "/api/v4/withdrawals"
 	body := make(map[string]interface{})
@@ -387,6 +369,29 @@ func (c *httpClient) Withdrawal(amount, currency, address, memo, chain string) (
 	var reply *Withdrawal
 	if err := json.Unmarshal(respBody, &reply); err != nil {
 		c.logger.Error(method+" "+path, zap.String("reply", string(respBody)), zap.Error(err))
+		err := ErrResponseBody(respBody)
+		return nil, errors.WithStack(err)
+	}
+
+	return reply, nil
+}
+
+// 查询所有币种信息
+func (c *HTTPClient) CurrencyChains(currency string) ([]*CurrencyChain, error) {
+	method := http.MethodGet
+	path := "/api/v4/wallet/currency_chains"
+	query := url.Values{}
+	query.Add("currency", currency)
+
+	respBody, err := c.Request(method, path, query, nil, false)
+	if err != nil {
+		c.logger.Error(path, zap.Error(err))
+		return nil, errors.WithStack(err)
+	}
+
+	var reply []*CurrencyChain
+	if err := json.Unmarshal(respBody, &reply); err != nil {
+		c.logger.Error(path, zap.String("reply", string(respBody)), zap.Error(err))
 		err := ErrResponseBody(respBody)
 		return nil, errors.WithStack(err)
 	}

@@ -256,6 +256,38 @@ func (c *HTTPClient) DepositWithdrawConfig(ccy string) (*DepositWithdrawConfig, 
 	return reply.Data, nil
 }
 
+// 获取充提配置
+func (c *HTTPClient) AllDepositWithdrawConfig() ([]*DepositWithdrawConfig, error) {
+	method := http.MethodGet
+	path := "/v2/assets/all-deposit-withdraw-config"
+
+	resp, err := c.Request(method, path, nil, nil, false)
+	if err != nil {
+		c.logger.Error(path, zap.Error(err))
+		return nil, errors.WithStack(err)
+	}
+
+	var reply struct {
+		Code    int                      `json:"code"`
+		Data    []*DepositWithdrawConfig `json:"data"`
+		Message string                   `json:"message"`
+	}
+
+	if err := json.Unmarshal(resp, &reply); err != nil {
+		c.logger.Error(path, zap.String("resp", string(resp)), zap.Error(err))
+		err := ErrResponseBody(resp)
+		return nil, errors.WithStack(err)
+	}
+
+	if reply.Code != 0 {
+		c.logger.Error(path, zap.String("resp", string(resp)), zap.Error(err))
+		err := NewErrResponse(reply.Code, reply.Message)
+		return nil, errors.WithStack(err)
+	}
+
+	return reply.Data, nil
+}
+
 func (c *HTTPClient) DepositAddress(ccy, chain string) (*DepositAddress, error) {
 	method := http.MethodGet
 	path := "/v2/assets/deposit-address"

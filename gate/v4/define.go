@@ -47,6 +47,8 @@ type Currency struct {
 	DepositDisabled bool `json:"deposit_disabled"`
 	// 是否暂停交易
 	TradeDisabled bool `json:"trade_disabled"`
+	// 币对应的链
+	Chain string `json:"chain"`
 }
 
 type CurrencyPair struct {
@@ -179,4 +181,24 @@ type Withdrawal struct {
 	Memo      string          `json:"memo"`
 	Status    string          `json:"status"`
 	Chain     string          `json:"chain"`
+}
+
+type CurrencyChain struct {
+	// 链名称
+	Chain string `json:"chain"`
+	// 中文名
+	NameCn string `json:"name_cn"`
+	// 英文名
+	NameEn string `json:"name_en"`
+	// 智能合约地址
+	ContractAddress string `json:"contract_address"`
+	// 是否禁用, 0.否,1,是
+	IsDisabled int `json:"is_disabled"`
+	// 充值是否禁用
+	IsDepositDisabled int `json:"is_deposit_disabled"`
+	// 提现是否禁用
+	IsWithdrawDisabled int `json:"is_withdraw_disabled"`
+	// 提币精度
+	Decimal string `json:"decimal"`
+	IsTag   int    `json:"is_tag"`
 }
