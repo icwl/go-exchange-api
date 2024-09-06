@@ -121,6 +121,26 @@ type DepositWithdrawConfig struct {
 	} `json:"chains"`
 }
 
+type CurrencyInfo struct {
+	// 币种简称
+	ShortName string `json:"short_name"`
+	// 币种全称
+	FullName string `json:"full_name"`
+	// 币种官网地址
+	WebsiteURL string `json:"website_url"`
+	// 币种白皮书地址
+	WhitePaperURL string `json:"white_paper_url"`
+	// 公链信息
+	ChainInfo []struct {
+		// 公链名称
+		ChainName string `json:"chain_name"`
+		// 公链币种唯一标识，在大部分链中使用合约地址作为唯一标识，比如ETH系公链
+		Identity string `json:"identity"`
+		// 公链浏览器地址，可通过浏览器地址结合币种唯一标识唯一确定币种
+		ExplorerURL string `json:"explorer_url"`
+	} `json:"chain_info"`
+}
+
 type DepositAddress struct {
 	Address string `json:"address"`
 	Memo    string `json:"memo"`

@@ -288,6 +288,42 @@ func (c *HTTPClient) AllDepositWithdrawConfig() ([]*DepositWithdrawConfig, error
 	return reply.Data, nil
 }
 
+// 获取币种资料
+func (c *HTTPClient) Info(ccy string) ([]*CurrencyInfo, error) {
+	method := http.MethodGet
+	path := "/v2/assets/info"
+	query := url.Values{}
+	if ccy != "" {
+		query.Add("ccy", ccy)
+	}
+
+	resp, err := c.Request(method, path, query, nil, false)
+	if err != nil {
+		c.logger.Error(path, zap.Error(err))
+		return nil, errors.WithStack(err)
+	}
+
+	var reply struct {
+		Code    int             `json:"code"`
+		Data    []*CurrencyInfo `json:"data"`
+		Message string          `json:"message"`
+	}
+
+	if err := json.Unmarshal(resp, &reply); err != nil {
+		c.logger.Error(path, zap.String("resp", string(resp)), zap.Error(err))
+		err := ErrResponseBody(resp)
+		return nil, errors.WithStack(err)
+	}
+
+	if reply.Code != 0 {
+		c.logger.Error(path, zap.String("resp", string(resp)), zap.Error(err))
+		err := NewErrResponse(reply.Code, reply.Message)
+		return nil, errors.WithStack(err)
+	}
+
+	return reply.Data, nil
+}
+
 func (c *HTTPClient) DepositAddress(ccy, chain string) (*DepositAddress, error) {
 	method := http.MethodGet
 	path := "/v2/assets/deposit-address"

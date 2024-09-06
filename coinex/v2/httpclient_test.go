@@ -91,6 +91,20 @@ func TestHTTPClient_DepositWithdrawConfig(t *testing.T) {
 	t.Logf("获取充提配置 : %+v", res)
 }
 
+func TestHTTPClient_Info(t *testing.T) {
+	logger := zap.NewExample()
+	client := NewHTTPClient(httpURL, key, secret, logger)
+
+	res, err := client.Info("USDT")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for _, item := range res {
+		t.Logf("获取币种资料 : %+v", item)
+	}
+}
+
 func TestHTTPClient_SpotOrderStatus(t *testing.T) {
 	logger := zap.NewExample()
 	client := NewHTTPClient(httpURL, key, secret, logger)
